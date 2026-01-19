@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getAuthToken, removeAuthToken, setAuthToken } from '@/lib/graphql/client';
-import { useGetMe } from '@/hooks/api/useAuth';
+import { useGetMe, User as ApiUser } from '@/hooks/api/useAuth';
 
-interface User {
+export interface User {
   id: string;
   email: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   createdAt?: string;
 }
 

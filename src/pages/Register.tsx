@@ -39,7 +39,7 @@ const Register = () => {
       email: data.email,
       password: data.password,
       firstName: data.name.split(' ')[0],
-      lastName: data.name.split(' ').slice(1).join(' '),
+      lastName: data.name.split(' ').slice(1).join(' ') || '',
     });
 
     if (result.success) {
@@ -60,7 +60,7 @@ const Register = () => {
     }
   };
 
-  const apiErrorMessage = getErrorMessage(error);
+  const apiErrorMessage = error ? getErrorMessage(error) : null;
 
   return (
     <AuthLayout title="Create your account" subtitle="Get started with Eventify for free">
@@ -140,7 +140,7 @@ const Register = () => {
           </div>
           {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
         </div>
-        {apiErrorMessage && !error?.graphQLErrors?.some(e => e.message.includes('email')) && (
+        {apiErrorMessage && (
           <p className="text-sm text-destructive">{apiErrorMessage}</p>
         )}
         <Button type="submit" variant="gradient" className="w-full" disabled={loading}>

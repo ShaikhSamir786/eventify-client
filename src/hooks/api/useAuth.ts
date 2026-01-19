@@ -14,7 +14,6 @@ import {
   RESEND_OTP,
   GET_ME 
 } from '@/lib/graphql/queries';
-import { apolloClient } from '@/lib/graphql/client';
 
 // Types
 export interface CreateUserInput {
@@ -113,8 +112,8 @@ export const useRegister = () => {
   const handleRegister = async (input: CreateUserInput) => {
     try {
       const result = await register({ variables: { input } });
-      if (result.data?.register) {
-        return { success: true, data: result.data.register };
+      if (result.data?.createUser) {
+        return { success: true, data: result.data.createUser };
       }
       throw new Error('Registration failed');
     } catch (err) {
@@ -161,8 +160,8 @@ export const useVerifyOTP = () => {
   const handleVerifyOTP = async (input: VerifyEmailInput) => {
     try {
       const result = await verifyOTP({ variables: { input } });
-      if (result.data?.verifyOTP) {
-        return { success: true, data: result.data.verifyOTP };
+      if (result.data?.verifyEmail) {
+        return { success: true, data: result.data.verifyEmail };
       }
       throw new Error('OTP verification failed');
     } catch (err) {

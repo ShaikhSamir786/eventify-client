@@ -16,6 +16,8 @@ import {
   Trash2,
   Edit,
   AlertCircle,
+  MapPin,
+  Eye,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -24,13 +26,24 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useGetMyEvents, useGetInvitedEvents, useDeleteEvent, getErrorMessage } from '@/hooks/api/useEvents';
+import { useGetMyEvents, useGetInvitedEvents, useDeleteEvent, getErrorMessage, Event } from '@/hooks/api/useEvents';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const Events = () => {
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
   const defaultTab = searchParams.get('filter') === 'invited' ? 'invited' : 'all';
   const { toast } = useToast();
 
@@ -48,10 +61,13 @@ const Events = () => {
   const loading = myLoading || invitedLoading;
   const error = myError || invitedError;
 
-  const handleDeleteEvent = async (eventId: string) => {
-    setDeletingEventId(eventId);
-    const result = await deleteEvent(eventId);
+  const handleDeleteEvent = async () => {
+    if (!eventToDelete) return;
+    
+    setDeletingEventId(eventToDelete.id);
+    const result = await deleteEvent(eventToDelete.id);
     setDeletingEventId(null);
+    setEventToDelete(null);
 
     if (result.success) {
       toast({
@@ -144,7 +160,7 @@ const Events = () => {
                   <EventCard 
                     key={event.id} 
                     event={event} 
-                    onDelete={handleDeleteEvent}
+                    onDelete={(e) => setEventToDelete(e)}
                     isDeleting={deletingEventId === event.id}
                     isCreator={myEvents.some(e => e.id === event.id)}
                   />
@@ -166,7 +182,7 @@ const Events = () => {
                   <EventCard 
                     key={event.id} 
                     event={event} 
-                    onDelete={handleDeleteEvent}
+                    onDelete={(e) => setEventToDelete(e)}
                     isDeleting={deletingEventId === event.id}
                     isCreator={true}
                   />
@@ -188,7 +204,7 @@ const Events = () => {
                   <EventCard 
                     key={event.id} 
                     event={event} 
-                    onDelete={handleDeleteEvent}
+                    onDelete={(e) => setEventToDelete(e)}
                     isDeleting={deletingEventId === event.id}
                     isCreator={false}
                   />
@@ -200,6 +216,27 @@ const Events = () => {
           </Tabs>
         </motion.div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!eventToDelete} onOpenChange={() => setEventToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Event</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{eventToDelete?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteEvent}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };
@@ -210,18 +247,18 @@ const EventCard = ({
   isDeleting,
   isCreator,
 }: {
-  event: any;
-  onDelete: (id: string) => void;
+  event: Event;
+  onDelete: (event: Event) => void;
   isDeleting: boolean;
   isCreator: boolean;
 }) => {
-  const startDate = new Date(event.startDate);
-  const formattedDate = startDate.toLocaleDateString('en-US', {
+  const eventDate = new Date(event.date);
+  const formattedDate = eventDate.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
   });
-  const formattedTime = startDate.toLocaleTimeString('en-US', {
+  const formattedTime = eventDate.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
   });
@@ -240,48 +277,67 @@ const EventCard = ({
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-lg">{event.title}</h3>
+              {isCreator && (
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                  Creator
+                </span>
+              )}
             </div>
             <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
               {event.description || 'No description provided'}
             </p>
-            <div className="flex items-center gap-4 text-sm">
+            <div className="flex flex-wrap items-center gap-4 text-sm">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Clock className="w-4 h-4" />
                 {formattedDate} at {formattedTime}
               </div>
+              {event.location && (
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <MapPin className="w-4 h-4" />
+                  {event.location}
+                </div>
+              )}
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Users className="w-4 h-4" />
-                {event.participants.length} participants
+                {event.invitedEmails?.length || 0} invited
               </div>
             </div>
           </div>
         </div>
 
-        {isCreator && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="flex-shrink-0" disabled={isDeleting}>
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link to={`/events/${event.id}/edit`}>
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="text-destructive"
-                onClick={() => onDelete(event.id)}
-                disabled={isDeleting}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="flex-shrink-0" disabled={isDeleting}>
+              <MoreVertical className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link to={`/events/${event.id}`}>
+                <Eye className="w-4 h-4 mr-2" />
+                View Details
+              </Link>
+            </DropdownMenuItem>
+            {isCreator && (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link to={`/events/${event.id}/edit`}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="text-destructive"
+                  onClick={() => onDelete(event)}
+                  disabled={isDeleting}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </motion.div>
   );
@@ -306,72 +362,3 @@ const EmptyState = ({ message = "No events found" }: { message?: string }) => (
 );
 
 export default Events;
-
-//               {event.isCreator && (
-//                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
-//                   Creator
-//                 </span>
-//               )}
-//             </div>
-            
-//             <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-//               {event.description}
-//             </p>
-//             <div className="flex items-center gap-4 text-sm">
-//               <div className="flex items-center gap-1.5 text-muted-foreground">
-//                 <Clock className="w-4 h-4" />
-//                 {formattedDate} at {formattedTime}
-//               </div>
-//               <div className="flex items-center gap-1.5 text-muted-foreground">
-//                 <Users className="w-4 h-4" />
-//                 {event.participants} participants
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-
-//         {event.isCreator && (
-//           <DropdownMenu>
-//             <DropdownMenuTrigger asChild>
-//               <Button variant="ghost" size="icon" className="flex-shrink-0">
-//                 <MoreVertical className="w-4 h-4" />
-//               </Button>
-//             </DropdownMenuTrigger>
-//             <DropdownMenuContent align="end">
-//               <DropdownMenuItem asChild>
-//                 <Link to={`/events/${event.id}/edit`}>
-//                   <Edit className="w-4 h-4 mr-2" />
-//                   Edit
-//                 </Link>
-//               </DropdownMenuItem>
-//               <DropdownMenuItem className="text-destructive">
-//                 <Trash2 className="w-4 h-4 mr-2" />
-//                 Delete
-//               </DropdownMenuItem>
-//             </DropdownMenuContent>
-//           </DropdownMenu>
-//         )}
-//       </div>
-//     </motion.div>
-//   );
-// };
-
-// const EmptyState = ({ message = "No events found" }: { message?: string }) => (
-//   <div className="text-center py-16 bg-card rounded-2xl border border-border">
-//     <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-//       <Calendar className="w-8 h-8 text-muted-foreground" />
-//     </div>
-//     <h3 className="font-medium mb-2">{message}</h3>
-//     <p className="text-sm text-muted-foreground mb-6">
-//       Create your first event to get started
-//     </p>
-//     <Button variant="gradient" asChild>
-//       <Link to="/events/create">
-//         <CalendarPlus className="w-4 h-4 mr-2" />
-//         Create Event
-//       </Link>
-//     </Button>
-//   </div>
-// );
-
-// export default Events;

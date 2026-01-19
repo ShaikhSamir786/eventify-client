@@ -99,10 +99,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <DropdownMenuTrigger asChild>
               <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted transition-colors">
                 <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center text-white text-sm font-semibold">
-                  {user?.name?.charAt(0).toUpperCase() || 'U'}
+                  {user?.firstName?.charAt(0).toUpperCase() || 'U'}
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-sm font-medium truncate">{user?.name}</p>
+                  <p className="text-sm font-medium truncate">{user?.firstName} {user?.lastName}</p>
                   <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                 </div>
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />
