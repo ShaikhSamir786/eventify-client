@@ -21,23 +21,23 @@ const Dashboard = () => {
 
   // Calculate stats from real data
   const totalEvents = events.length;
-  const upcomingEvents = events.filter(e => new Date(e.startDate) > new Date()).length;
-  const totalParticipants = new Set(events.flatMap(e => e.participants.map(p => p.id))).size;
+  const upcomingEvents = events.filter(e => new Date(e.date) > new Date()).length;
+  const totalParticipants = events.reduce((acc, e) => acc + (e.invitedEmails?.length || 0), 0);
   
   const stats = [
     { label: 'Total Events', value: totalEvents.toString(), icon: Calendar, color: 'primary' },
     { label: 'Upcoming', value: upcomingEvents.toString(), icon: Clock, color: 'success' },
-    { label: 'Participants', value: totalParticipants.toString(), icon: Users, color: 'accent' },
+    { label: 'Invited', value: totalParticipants.toString(), icon: Users, color: 'accent' },
     { label: 'This Month', value: events.filter(e => {
-      const eventDate = new Date(e.startDate);
+      const eventDate = new Date(e.date);
       const now = new Date();
       return eventDate.getMonth() === now.getMonth() && eventDate.getFullYear() === now.getFullYear();
     }).length.toString(), icon: TrendingUp, color: 'warning' },
   ];
 
   const upcomingEventsList = events
-    .filter(e => new Date(e.startDate) > new Date())
-    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+    .filter(e => new Date(e.date) > new Date())
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .slice(0, 5);
 
   const formatDate = (dateString: string) => {
@@ -63,7 +63,7 @@ const Dashboard = () => {
           transition={{ duration: 0.5 }}
         >
           <h1 className="text-3xl font-display font-bold mb-2">
-            Welcome back, {user?.name?.split(' ')[0] || 'there'}! 👋
+            Welcome back, {user?.firstName || 'there'}! 👋
           </h1>
           <p className="text-muted-foreground">
             Here's what's happening with your events today.
@@ -206,7 +206,7 @@ const EventRow = ({
   event,
   formatDate,
 }: {
-  event: any;
+  event: { id: string; title: string; date: string; invitedEmails?: string[] };
   formatDate: (date: string) => string;
 }) => {
   return (
@@ -220,13 +220,13 @@ const EventRow = ({
         </div>
         <div>
           <h3 className="font-medium">{event.title}</h3>
-          <p className="text-sm text-muted-foreground">{formatDate(event.startDate)}</p>
+          <p className="text-sm text-muted-foreground">{formatDate(event.date)}</p>
         </div>
       </div>
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Users className="w-4 h-4" />
-          {event.participants.length}
+          {event.invitedEmails?.length || 0}
         </div>
       </div>
     </Link>

@@ -15,16 +15,16 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useCreateEvent, getErrorMessage } from '@/hooks/api/useEvents';
 import { format } from 'date-fns';
-import { CalendarIcon, Loader2, Mail, Plus, X, ArrowLeft, AlertCircle } from 'lucide-react';
+import { CalendarIcon, Loader2, Mail, Plus, X, ArrowLeft, AlertCircle, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const createEventSchema = z.object({
   title: z.string().min(1, 'Title is required').max(100),
   description: z.string().max(1000).optional(),
-  startDate: z.date({ required_error: 'Start date is required' }),
-  endDate: z.date({ required_error: 'End date is required' }),
+  date: z.date({ required_error: 'Date is required' }),
+  location: z.string().max(200).optional(),
   emails: z.array(z.object({ value: z.string().email() })).optional(),
-}).refine(data => data.endDate >= data.startDate, { message: 'End date must be after start date', path: ['endDate'] });
+});
 
 type CreateEventFormData = z.infer<typeof createEventSchema>;
 
@@ -40,16 +40,15 @@ const CreateEvent = () => {
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'emails' });
-  const startDate = watch('startDate');
-  const endDate = watch('endDate');
+  const date = watch('date');
 
   const onSubmit = async (data: CreateEventFormData) => {
     const result = await createEvent({
       title: data.title,
       description: data.description,
-      startDate: data.startDate.toISOString(),
-      endDate: data.endDate.toISOString(),
-      emails: data.emails?.map(e => e.value),
+      date: data.date.toISOString(),
+      location: data.location,
+      invitedEmails: data.emails?.map(e => e.value),
     });
 
     if (result.success) {
@@ -117,40 +116,35 @@ const CreateEvent = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Start Date *</Label>
+              <Label>Date *</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button 
                     variant="outline" 
-                    className={cn('w-full justify-start text-left', !startDate && 'text-muted-foreground')}
+                    className={cn('w-full justify-start text-left', !date && 'text-muted-foreground')}
                     disabled={loading}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />{startDate ? format(startDate, 'PPP') : 'Pick a date'}
+                    <CalendarIcon className="mr-2 h-4 w-4" />{date ? format(date, 'PPP') : 'Pick a date'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={startDate} onSelect={(date) => date && setValue('startDate', date)} initialFocus />
+                  <Calendar mode="single" selected={date} onSelect={(d) => d && setValue('date', d)} initialFocus />
                 </PopoverContent>
               </Popover>
-              {errors.startDate && <p className="text-sm text-destructive">{errors.startDate.message}</p>}
+              {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label>End Date *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className={cn('w-full justify-start text-left', !endDate && 'text-muted-foreground')}
-                    disabled={loading}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />{endDate ? format(endDate, 'PPP') : 'Pick a date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={endDate} onSelect={(date) => date && setValue('endDate', date)} disabled={(date) => startDate && date < startDate} initialFocus />
-                </PopoverContent>
-              </Popover>
-              {errors.endDate && <p className="text-sm text-destructive">{errors.endDate.message}</p>}
+              <Label htmlFor="location">Location</Label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input 
+                  id="location" 
+                  placeholder="e.g., Conference Room A" 
+                  className="pl-10"
+                  disabled={loading}
+                  {...register('location')} 
+                />
+              </div>
             </div>
           </div>
           <div className="space-y-2">

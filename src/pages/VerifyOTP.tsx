@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { useAuth } from '@/contexts/AuthContext';
+import { useVerifyOTP, useResendOTP, getErrorMessage } from '@/hooks/api/useAuth';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -11,13 +11,13 @@ const VerifyOTP = () => {
   const [otp, setOtp] = useState('');
   const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [resending, setResending] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
   const { toast } = useToast();
   const email = location.state?.email;
+  
+  const { verifyOTP, loading: verifying } = useVerifyOTP();
+  const { resendOTP, loading: resending } = useResendOTP();
 
   useEffect(() => { if (!email) navigate('/register'); }, [email, navigate]);
   useEffect(() => {
@@ -27,25 +27,35 @@ const VerifyOTP = () => {
     } else setCanResend(true);
   }, [countdown]);
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (otp.length === 6) {
-      setVerifying(true);
-      setTimeout(() => {
-        login('mock-token', { id: '1', email, name: 'User' });
-        toast({ title: 'Email verified!', description: 'Your account has been verified successfully.' });
-        navigate('/dashboard');
-      }, 1000);
+      const result = await verifyOTP({ email, otp });
+      if (result.success) {
+        toast({ title: 'Email verified!', description: 'Your account has been verified. Please log in.' });
+        navigate('/login');
+      } else {
+        toast({
+          title: 'Verification failed',
+          description: result.error || 'Invalid or expired code',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
-  const handleResend = () => {
-    setResending(true);
-    setTimeout(() => {
+  const handleResend = async () => {
+    const result = await resendOTP(email);
+    if (result.success) {
       toast({ title: 'Code resent!', description: 'A new verification code has been sent to your email.' });
       setCountdown(60);
       setCanResend(false);
-      setResending(false);
-    }, 1000);
+    } else {
+      toast({
+        title: 'Failed to resend',
+        description: result.error || 'Could not resend the code',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -59,7 +69,7 @@ const VerifyOTP = () => {
           </InputOTP>
         </div>
         <Button variant="gradient" className="w-full" onClick={handleVerify} disabled={otp.length !== 6 || verifying}>
-          {verifying ? <><Loader2 className="w-4 h-4 animate-spin" />Verifying...</> : 'Verify email'}
+          {verifying ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Verifying...</> : 'Verify email'}
         </Button>
         <div className="text-center">
           {canResend ? (

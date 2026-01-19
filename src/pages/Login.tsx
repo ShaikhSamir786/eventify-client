@@ -27,13 +27,13 @@ const Login = () => {
   const { register, handleSubmit, formState: { errors }, setError } = useForm<LoginFormData>({ resolver: zodResolver(loginSchema) });
 
   const onSubmit = async (data: LoginFormData) => {
-    const result = await login(data);
-    if (result.success) {
+    const result = await login({ email: data.email, password: data.password });
+    if (result.success && result.data) {
       const { token, user } = result.data;
       loginAuth(token, user);
       toast({ 
         title: 'Welcome back!', 
-        description: `Welcome, ${user.name}!` 
+        description: `Welcome, ${user.firstName}!` 
       });
       navigate('/dashboard');
     } else {
@@ -50,7 +50,7 @@ const Login = () => {
     }
   };
 
-  const apiErrorMessage = getErrorMessage(error);
+  const apiErrorMessage = error ? getErrorMessage(error) : null;
 
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to your Eventify account">
@@ -96,7 +96,7 @@ const Login = () => {
           </div>
           {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
         </div>
-        {apiErrorMessage && !error?.graphQLErrors?.some(e => e.message.includes('email') || e.message.includes('password')) && (
+        {apiErrorMessage && (
           <p className="text-sm text-destructive">{apiErrorMessage}</p>
         )}
         <Button type="submit" variant="gradient" className="w-full" disabled={loading}>
