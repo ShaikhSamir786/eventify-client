@@ -2,23 +2,25 @@ import { gql } from '@apollo/client';
 
 // Auth Mutations
 export const REGISTER_USER = gql`
-  mutation RegisterUser($input: RegisterInput!) {
-    register(input: $input) {
+  mutation CreateUser($input: CreateUserInput!) {
+    createUser(input: $input) {
       message
-      email
+      success
+      user {
+        id
+        email
+        firstName
+        lastName
+      }
     }
   }
 `;
 
 export const VERIFY_OTP = gql`
-  mutation VerifyOTP($input: VerifyOTPInput!) {
-    verifyOTP(input: $input) {
-      token
-      user {
-        id
-        email
-        name
-      }
+  mutation VerifyEmail($input: VerifyEmailInput!) {
+    verifyEmail(input: $input) {
+      message
+      success
     }
   }
 `;
@@ -26,20 +28,24 @@ export const VERIFY_OTP = gql`
 export const LOGIN = gql`
   mutation Login($input: LoginInput!) {
     login(input: $input) {
+      message
       token
+      success
       user {
         id
         email
-        name
+        firstName
+        lastName
       }
     }
   }
 `;
 
 export const FORGOT_PASSWORD = gql`
-  mutation ForgotPassword($email: String!) {
-    forgotPassword(email: $email) {
+  mutation ForgotPassword($input: ForgotPasswordInput!) {
+    forgotPassword(input: $input) {
       message
+      success
     }
   }
 `;
@@ -48,6 +54,7 @@ export const RESET_PASSWORD = gql`
   mutation ResetPassword($input: ResetPasswordInput!) {
     resetPassword(input: $input) {
       message
+      success
     }
   }
 `;
@@ -56,6 +63,7 @@ export const RESEND_OTP = gql`
   mutation ResendOTP($email: String!) {
     resendOTP(email: $email) {
       message
+      success
     }
   }
 `;
@@ -66,7 +74,8 @@ export const GET_ME = gql`
     me {
       id
       email
-      name
+      firstName
+      lastName
       createdAt
     }
   }
@@ -79,19 +88,17 @@ export const GET_MY_EVENTS = gql`
       id
       title
       description
-      startDate
-      endDate
+      date
+      location
       createdBy {
         id
-        name
+        firstName
+        lastName
         email
       }
-      participants {
-        id
-        email
-        name
-      }
+      invitedEmails
       createdAt
+      updatedAt
     }
   }
 `;
@@ -102,18 +109,17 @@ export const GET_INVITED_EVENTS = gql`
       id
       title
       description
-      startDate
-      endDate
+      date
+      location
       createdBy {
         id
-        name
+        firstName
+        lastName
         email
       }
-      participants {
-        id
-        email
-        name
-      }
+      invitedEmails
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -124,18 +130,15 @@ export const GET_EVENT = gql`
       id
       title
       description
-      startDate
-      endDate
+      date
+      location
       createdBy {
         id
-        name
+        firstName
+        lastName
         email
       }
-      participants {
-        id
-        email
-        name
-      }
+      invitedEmails
       createdAt
       updatedAt
     }
@@ -144,16 +147,25 @@ export const GET_EVENT = gql`
 
 // Event Mutations
 export const CREATE_EVENT = gql`
-  mutation CreateEvent($input: CreateEventInput!) {
+  mutation CreateEvent($input: EventInput!) {
     createEvent(input: $input) {
-      id
-      title
-      description
-      startDate
-      endDate
-      participants {
+      message
+      success
+      event {
         id
-        email
+        title
+        description
+        date
+        location
+        createdBy {
+          id
+          firstName
+          lastName
+          email
+        }
+        invitedEmails
+        createdAt
+        updatedAt
       }
     }
   }
@@ -162,11 +174,23 @@ export const CREATE_EVENT = gql`
 export const UPDATE_EVENT = gql`
   mutation UpdateEvent($id: ID!, $input: UpdateEventInput!) {
     updateEvent(id: $id, input: $input) {
-      id
-      title
-      description
-      startDate
-      endDate
+      message
+      success
+      event {
+        id
+        title
+        description
+        date
+        location
+        createdBy {
+          id
+          firstName
+          lastName
+          email
+        }
+        invitedEmails
+        updatedAt
+      }
     }
   }
 `;
@@ -175,18 +199,24 @@ export const DELETE_EVENT = gql`
   mutation DeleteEvent($id: ID!) {
     deleteEvent(id: $id) {
       message
+      success
+      event {
+        id
+        title
+      }
     }
   }
 `;
 
 export const INVITE_PARTICIPANTS = gql`
-  mutation InviteParticipants($eventId: ID!, $emails: [String!]!) {
-    inviteParticipants(eventId: $eventId, emails: $emails) {
-      id
-      participants {
+  mutation InviteParticipants($input: InviteParticipantsInput!) {
+    inviteParticipants(input: $input) {
+      message
+      success
+      event {
         id
-        email
-        name
+        title
+        invitedEmails
       }
     }
   }

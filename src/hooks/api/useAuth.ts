@@ -1,4 +1,10 @@
-import { useMutation, useQuery, ApolloError } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client/react';
+import {
+  CombinedGraphQLErrors,
+  ServerError,
+  ServerParseError,
+  UnconventionalError,
+} from '@apollo/client';
 import { 
   REGISTER_USER, 
   LOGIN, 
@@ -11,7 +17,7 @@ import {
 import { apolloClient } from '@/lib/graphql/client';
 
 // Types
-export interface RegisterInput {
+export interface CreateUserInput {
   email: string;
   password: string;
   firstName: string;
@@ -23,59 +29,71 @@ export interface LoginInput {
   password: string;
 }
 
-export interface VerifyOTPInput {
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface VerifyEmailInput {
   email: string;
   otp: string;
 }
 
 export interface ResetPasswordInput {
-  token: string;
+  email: string;
+  otp: string;
   newPassword: string;
 }
 
 export interface User {
   id: string;
   email: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   createdAt?: string;
 }
 
-interface RegisterResponse {
-  register: {
+interface CreateUserResponse {
+  createUser: {
     message: string;
-    email: string;
+    success: boolean;
+    user: User | null;
   };
 }
 
 interface LoginResponse {
   login: {
+    message: string;
     token: string;
     user: User;
+    success: boolean;
   };
 }
 
-interface VerifyOTPResponse {
-  verifyOTP: {
-    token: string;
-    user: User;
+interface VerifyEmailResponse {
+  verifyEmail: {
+    message: string;
+    success: boolean;
   };
 }
 
 interface ForgotPasswordResponse {
   forgotPassword: {
     message: string;
+    success: boolean;
   };
 }
 
 interface ResetPasswordResponse {
   resetPassword: {
     message: string;
+    success: boolean;
   };
 }
 
 interface ResendOTPResponse {
   resendOTP: {
     message: string;
+    success: boolean;
   };
 }
 
@@ -85,14 +103,14 @@ interface GetMeResponse {
 
 // Auth Mutations
 export const useRegister = () => {
-  const [register, { loading, error }] = useMutation<RegisterResponse, { input: RegisterInput }>(
+  const [register, { loading, error }] = useMutation<CreateUserResponse, { input: CreateUserInput }>(
     REGISTER_USER,
     {
       errorPolicy: 'all',
     }
   );
 
-  const handleRegister = async (input: RegisterInput) => {
+  const handleRegister = async (input: CreateUserInput) => {
     try {
       const result = await register({ variables: { input } });
       if (result.data?.register) {
@@ -100,7 +118,7 @@ export const useRegister = () => {
       }
       throw new Error('Registration failed');
     } catch (err) {
-      const errorMessage = err instanceof ApolloError ? err.message : 'Registration failed';
+      const errorMessage = getErrorMessage(err);
       return { success: false, error: errorMessage };
     }
   };
@@ -124,7 +142,7 @@ export const useLogin = () => {
       }
       throw new Error('Login failed');
     } catch (err) {
-      const errorMessage = err instanceof ApolloError ? err.message : 'Login failed';
+      const errorMessage = getErrorMessage(err);
       return { success: false, error: errorMessage };
     }
   };
@@ -133,14 +151,14 @@ export const useLogin = () => {
 };
 
 export const useVerifyOTP = () => {
-  const [verifyOTP, { loading, error }] = useMutation<VerifyOTPResponse, { input: VerifyOTPInput }>(
+  const [verifyOTP, { loading, error }] = useMutation<VerifyEmailResponse, { input: VerifyEmailInput }>(
     VERIFY_OTP,
     {
       errorPolicy: 'all',
     }
   );
 
-  const handleVerifyOTP = async (input: VerifyOTPInput) => {
+  const handleVerifyOTP = async (input: VerifyEmailInput) => {
     try {
       const result = await verifyOTP({ variables: { input } });
       if (result.data?.verifyOTP) {
@@ -148,7 +166,7 @@ export const useVerifyOTP = () => {
       }
       throw new Error('OTP verification failed');
     } catch (err) {
-      const errorMessage = err instanceof ApolloError ? err.message : 'OTP verification failed';
+      const errorMessage = getErrorMessage(err);
       return { success: false, error: errorMessage };
     }
   };
@@ -157,7 +175,7 @@ export const useVerifyOTP = () => {
 };
 
 export const useForgotPassword = () => {
-  const [forgotPassword, { loading, error }] = useMutation<ForgotPasswordResponse, { email: string }>(
+  const [forgotPassword, { loading, error }] = useMutation<ForgotPasswordResponse, { input: ForgotPasswordInput }>(
     FORGOT_PASSWORD,
     {
       errorPolicy: 'all',
@@ -166,13 +184,13 @@ export const useForgotPassword = () => {
 
   const handleForgotPassword = async (email: string) => {
     try {
-      const result = await forgotPassword({ variables: { email } });
+      const result = await forgotPassword({ variables: { input: { email } } });
       if (result.data?.forgotPassword) {
         return { success: true, data: result.data.forgotPassword };
       }
       throw new Error('Failed to send reset email');
     } catch (err) {
-      const errorMessage = err instanceof ApolloError ? err.message : 'Failed to send reset email';
+      const errorMessage = getErrorMessage(err);
       return { success: false, error: errorMessage };
     }
   };
@@ -196,7 +214,7 @@ export const useResetPassword = () => {
       }
       throw new Error('Password reset failed');
     } catch (err) {
-      const errorMessage = err instanceof ApolloError ? err.message : 'Password reset failed';
+      const errorMessage = getErrorMessage(err);
       return { success: false, error: errorMessage };
     }
   };
@@ -220,7 +238,7 @@ export const useResendOTP = () => {
       }
       throw new Error('Failed to resend OTP');
     } catch (err) {
-      const errorMessage = err instanceof ApolloError ? err.message : 'Failed to resend OTP';
+      const errorMessage = getErrorMessage(err);
       return { success: false, error: errorMessage };
     }
   };
@@ -248,18 +266,35 @@ export const useGetMe = (skip?: boolean) => {
 };
 
 // Error handling helper
-export const getErrorMessage = (error: ApolloError | undefined): string => {
+export const getErrorMessage = (error: unknown): string => {
   if (!error) return 'An unknown error occurred';
   
-  // Check for GraphQL errors
-  if (error.graphQLErrors?.length > 0) {
-    return error.graphQLErrors[0].message;
+  // Check for GraphQL errors using the latest error type detection
+  if (CombinedGraphQLErrors.is(error)) {
+    if (error.errors?.length > 0) {
+      return error.errors[0].message;
+    }
   }
   
-  // Check for network errors
-  if (error.networkError) {
-    return `Network error: ${error.networkError.message}`;
+  // Check for server errors
+  if (ServerError.is(error)) {
+    return `Server error: ${error.message}`;
   }
   
-  return error.message || 'An unknown error occurred';
+  // Check for parse errors
+  if (ServerParseError.is(error)) {
+    return 'Failed to parse server response';
+  }
+  
+  // Check for unconventional errors
+  if (UnconventionalError.is(error)) {
+    return `Unexpected error: ${error.message}`;
+  }
+  
+  // Fallback for Error instances
+  if (error instanceof Error) {
+    return error.message;
+  }
+  
+  return 'An unknown error occurred';
 };

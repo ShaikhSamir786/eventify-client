@@ -1,4 +1,10 @@
-import { useMutation, useQuery, ApolloError } from '@apollo/client/react';
+import { useMutation, useQuery } from '@apollo/client/react';
+import {
+  CombinedGraphQLErrors,
+  ServerError,
+  ServerParseError,
+  UnconventionalError,
+} from '@apollo/client';
 import {
   GET_MY_EVENTS,
   GET_INVITED_EVENTS,
@@ -21,14 +27,15 @@ export interface Event {
   id: string;
   title: string;
   description?: string;
-  startDate: string;
-  endDate: string;
+  date: string;
+  location?: string;
   createdBy: {
     id: string;
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
   };
-  participants: Participant[];
+  invitedEmails?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -36,16 +43,17 @@ export interface Event {
 export interface CreateEventInput {
   title: string;
   description?: string;
-  startDate: string;
-  endDate: string;
-  emails?: string[];
+  date: string;
+  location?: string;
+  invitedEmails?: string[];
 }
 
 export interface UpdateEventInput {
   title?: string;
   description?: string;
-  startDate?: string;
-  endDate?: string;
+  date?: string;
+  location?: string;
+  invitedEmails?: string[];
 }
 
 interface GetMyEventsResponse {
@@ -61,21 +69,35 @@ interface GetEventResponse {
 }
 
 interface CreateEventResponse {
-  createEvent: Event;
+  createEvent: {
+    message: string;
+    success: boolean;
+    event: Event;
+  };
 }
 
 interface UpdateEventResponse {
-  updateEvent: Event;
+  updateEvent: {
+    message: string;
+    success: boolean;
+    event: Event;
+  };
 }
 
 interface DeleteEventResponse {
   deleteEvent: {
     message: string;
+    success: boolean;
+    event: Event;
   };
 }
 
 interface InviteParticipantsResponse {
-  inviteParticipants: Event;
+  inviteParticipants: {
+    message: string;
+    success: boolean;
+    event: Event;
+  };
 }
 
 interface RemoveParticipantResponse {
@@ -156,7 +178,7 @@ export const useCreateEvent = () => {
       }
       throw new Error('Failed to create event');
     } catch (err) {
-      const errorMessage = err instanceof ApolloError ? err.message : 'Failed to create event';
+      const errorMessage = getErrorMessage(err);
       return { success: false, error: errorMessage };
     }
   };
@@ -181,7 +203,7 @@ export const useUpdateEvent = () => {
       }
       throw new Error('Failed to update event');
     } catch (err) {
-      const errorMessage = err instanceof ApolloError ? err.message : 'Failed to update event';
+      const errorMessage = getErrorMessage(err);
       return { success: false, error: errorMessage };
     }
   };
@@ -206,7 +228,7 @@ export const useDeleteEvent = () => {
       }
       throw new Error('Failed to delete event');
     } catch (err) {
-      const errorMessage = err instanceof ApolloError ? err.message : 'Failed to delete event';
+      const errorMessage = getErrorMessage(err);
       return { success: false, error: errorMessage };
     }
   };
@@ -231,7 +253,7 @@ export const useInviteParticipants = () => {
       }
       throw new Error('Failed to invite participants');
     } catch (err) {
-      const errorMessage = err instanceof ApolloError ? err.message : 'Failed to invite participants';
+      const errorMessage = getErrorMessage(err);
       return { success: false, error: errorMessage };
     }
   };
@@ -256,7 +278,7 @@ export const useRemoveParticipant = () => {
       }
       throw new Error('Failed to remove participant');
     } catch (err) {
-      const errorMessage = err instanceof ApolloError ? err.message : 'Failed to remove participant';
+      const errorMessage = getErrorMessage(err);
       return { success: false, error: errorMessage };
     }
   };
@@ -265,16 +287,35 @@ export const useRemoveParticipant = () => {
 };
 
 // Error handling helper
-export const getErrorMessage = (error: ApolloError | undefined): string => {
+export const getErrorMessage = (error: unknown): string => {
   if (!error) return 'An unknown error occurred';
   
-  if (error.graphQLErrors?.length > 0) {
-    return error.graphQLErrors[0].message;
+  // Check for GraphQL errors using the latest error type detection
+  if (CombinedGraphQLErrors.is(error)) {
+    if (error.errors?.length > 0) {
+      return error.errors[0].message;
+    }
   }
   
-  if (error.networkError) {
-    return `Network error: ${error.networkError.message}`;
+  // Check for server errors
+  if (ServerError.is(error)) {
+    return `Server error: ${error.message}`;
   }
   
-  return error.message || 'An unknown error occurred';
+  // Check for parse errors
+  if (ServerParseError.is(error)) {
+    return 'Failed to parse server response';
+  }
+  
+  // Check for unconventional errors
+  if (UnconventionalError.is(error)) {
+    return `Unexpected error: ${error.message}`;
+  }
+  
+  // Fallback for Error instances
+  if (error instanceof Error) {
+    return error.message;
+  }
+  
+  return 'An unknown error occurred';
 };

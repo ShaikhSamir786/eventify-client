@@ -306,70 +306,72 @@ const EmptyState = ({ message = "No events found" }: { message?: string }) => (
 );
 
 export default Events;
-              {event.isCreator && (
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
-                  Creator
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-              {event.description}
-            </p>
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Clock className="w-4 h-4" />
-                {formattedDate} at {formattedTime}
-              </div>
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Users className="w-4 h-4" />
-                {event.participants} participants
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {event.isCreator && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="flex-shrink-0">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link to={`/events/${event.id}/edit`}>
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
-    </motion.div>
-  );
-};
+//               {event.isCreator && (
+//                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+//                   Creator
+//                 </span>
+//               )}
+//             </div>
+            
+//             <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+//               {event.description}
+//             </p>
+//             <div className="flex items-center gap-4 text-sm">
+//               <div className="flex items-center gap-1.5 text-muted-foreground">
+//                 <Clock className="w-4 h-4" />
+//                 {formattedDate} at {formattedTime}
+//               </div>
+//               <div className="flex items-center gap-1.5 text-muted-foreground">
+//                 <Users className="w-4 h-4" />
+//                 {event.participants} participants
+//               </div>
+//             </div>
+//           </div>
+//         </div>
 
-const EmptyState = ({ message = "No events found" }: { message?: string }) => (
-  <div className="text-center py-16 bg-card rounded-2xl border border-border">
-    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-      <Calendar className="w-8 h-8 text-muted-foreground" />
-    </div>
-    <h3 className="font-medium mb-2">{message}</h3>
-    <p className="text-sm text-muted-foreground mb-6">
-      Create your first event to get started
-    </p>
-    <Button variant="gradient" asChild>
-      <Link to="/events/create">
-        <CalendarPlus className="w-4 h-4 mr-2" />
-        Create Event
-      </Link>
-    </Button>
-  </div>
-);
+//         {event.isCreator && (
+//           <DropdownMenu>
+//             <DropdownMenuTrigger asChild>
+//               <Button variant="ghost" size="icon" className="flex-shrink-0">
+//                 <MoreVertical className="w-4 h-4" />
+//               </Button>
+//             </DropdownMenuTrigger>
+//             <DropdownMenuContent align="end">
+//               <DropdownMenuItem asChild>
+//                 <Link to={`/events/${event.id}/edit`}>
+//                   <Edit className="w-4 h-4 mr-2" />
+//                   Edit
+//                 </Link>
+//               </DropdownMenuItem>
+//               <DropdownMenuItem className="text-destructive">
+//                 <Trash2 className="w-4 h-4 mr-2" />
+//                 Delete
+//               </DropdownMenuItem>
+//             </DropdownMenuContent>
+//           </DropdownMenu>
+//         )}
+//       </div>
+//     </motion.div>
+//   );
+// };
 
-export default Events;
+// const EmptyState = ({ message = "No events found" }: { message?: string }) => (
+//   <div className="text-center py-16 bg-card rounded-2xl border border-border">
+//     <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+//       <Calendar className="w-8 h-8 text-muted-foreground" />
+//     </div>
+//     <h3 className="font-medium mb-2">{message}</h3>
+//     <p className="text-sm text-muted-foreground mb-6">
+//       Create your first event to get started
+//     </p>
+//     <Button variant="gradient" asChild>
+//       <Link to="/events/create">
+//         <CalendarPlus className="w-4 h-4 mr-2" />
+//         Create Event
+//       </Link>
+//     </Button>
+//   </div>
+// );
+
+// export default Events;
