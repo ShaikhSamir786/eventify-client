@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLogin, getErrorMessage } from '@/hooks/api/useAuth';
 import { Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -19,20 +20,37 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login: loginAuth } = useAuth();
   const { toast } = useToast();
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({ resolver: zodResolver(loginSchema) });
+  const { login, loading, error } = useLogin();
+  const { register, handleSubmit, formState: { errors }, setError } = useForm<LoginFormData>({ resolver: zodResolver(loginSchema) });
 
-  const onSubmit = (data: LoginFormData) => {
-    setLoading(true);
-    setTimeout(() => {
-      login('mock-token', { id: '1', email: data.email, name: 'User' });
-      toast({ title: 'Welcome back!', description: 'You have successfully logged in.' });
+  const onSubmit = async (data: LoginFormData) => {
+    const result = await login(data);
+    if (result.success) {
+      const { token, user } = result.data;
+      loginAuth(token, user);
+      toast({ 
+        title: 'Welcome back!', 
+        description: `Welcome, ${user.name}!` 
+      });
       navigate('/dashboard');
-    }, 1000);
+    } else {
+      toast({
+        title: 'Login failed',
+        description: result.error || 'Please check your credentials',
+        variant: 'destructive',
+      });
+      if (result.error?.includes('email')) {
+        setError('email', { message: result.error });
+      } else if (result.error?.includes('password')) {
+        setError('password', { message: result.error });
+      }
+    }
   };
+
+  const apiErrorMessage = getErrorMessage(error);
 
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to your Eventify account">
@@ -41,7 +59,14 @@ const Login = () => {
           <Label htmlFor="email">Email</Label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input id="email" type="email" placeholder="john@example.com" className="pl-10" {...register('email')} />
+            <Input 
+              id="email" 
+              type="email" 
+              placeholder="john@example.com" 
+              className="pl-10" 
+              disabled={loading}
+              {...register('email')} 
+            />
           </div>
           {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
         </div>
@@ -52,15 +77,30 @@ const Login = () => {
           </div>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input id="password" type={showPassword ? 'text' : 'password'} placeholder="••••••••" className="pl-10 pr-10" {...register('password')} />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <Input 
+              id="password" 
+              type={showPassword ? 'text' : 'password'} 
+              placeholder="••••••••" 
+              className="pl-10 pr-10" 
+              disabled={loading}
+              {...register('password')} 
+            />
+            <button 
+              type="button" 
+              onClick={() => setShowPassword(!showPassword)} 
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              disabled={loading}
+            >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
           {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
         </div>
+        {apiErrorMessage && !error?.graphQLErrors?.some(e => e.message.includes('email') || e.message.includes('password')) && (
+          <p className="text-sm text-destructive">{apiErrorMessage}</p>
+        )}
         <Button type="submit" variant="gradient" className="w-full" disabled={loading}>
-          {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Signing in...</> : 'Sign in'}
+          {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Signing in...</> : 'Sign in'}
         </Button>
       </form>
       <p className="text-center text-sm text-muted-foreground mt-6">

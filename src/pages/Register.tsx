@@ -7,6 +7,7 @@ import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useRegister, getErrorMessage } from '@/hooks/api/useAuth';
 import { Loader2, Mail, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -25,22 +26,41 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { register: registerUser, loading, error } = useRegister();
 
-  const { register, handleSubmit, formState: { errors } } = useForm<RegisterFormData>({
+  const { register, handleSubmit, formState: { errors }, setError } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   });
 
-  const onSubmit = (data: RegisterFormData) => {
-    setLoading(true);
-    setTimeout(() => {
-      toast({ title: 'Registration successful!', description: 'Please check your email for the verification code.' });
+  const onSubmit = async (data: RegisterFormData) => {
+    const result = await registerUser({
+      email: data.email,
+      password: data.password,
+      firstName: data.name.split(' ')[0],
+      lastName: data.name.split(' ').slice(1).join(' '),
+    });
+
+    if (result.success) {
+      toast({ 
+        title: 'Registration successful!', 
+        description: 'Please check your email for the verification code.' 
+      });
       navigate('/verify-otp', { state: { email: data.email } });
-      setLoading(false);
-    }, 1000);
+    } else {
+      toast({
+        title: 'Registration failed',
+        description: result.error || 'Please try again',
+        variant: 'destructive',
+      });
+      if (result.error?.includes('email')) {
+        setError('email', { message: result.error });
+      }
+    }
   };
+
+  const apiErrorMessage = getErrorMessage(error);
 
   return (
     <AuthLayout title="Create your account" subtitle="Get started with Eventify for free">
@@ -49,7 +69,13 @@ const Register = () => {
           <Label htmlFor="name">Full Name</Label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input id="name" placeholder="John Doe" className="pl-10" {...register('name')} />
+            <Input 
+              id="name" 
+              placeholder="John Doe" 
+              className="pl-10" 
+              disabled={loading}
+              {...register('name')} 
+            />
           </div>
           {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
         </div>
@@ -57,7 +83,14 @@ const Register = () => {
           <Label htmlFor="email">Email</Label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input id="email" type="email" placeholder="john@example.com" className="pl-10" {...register('email')} />
+            <Input 
+              id="email" 
+              type="email" 
+              placeholder="john@example.com" 
+              className="pl-10" 
+              disabled={loading}
+              {...register('email')} 
+            />
           </div>
           {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
         </div>
@@ -65,8 +98,20 @@ const Register = () => {
           <Label htmlFor="password">Password</Label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input id="password" type={showPassword ? 'text' : 'password'} placeholder="••••••••" className="pl-10 pr-10" {...register('password')} />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <Input 
+              id="password" 
+              type={showPassword ? 'text' : 'password'} 
+              placeholder="••••••••" 
+              className="pl-10 pr-10" 
+              disabled={loading}
+              {...register('password')} 
+            />
+            <button 
+              type="button" 
+              onClick={() => setShowPassword(!showPassword)} 
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              disabled={loading}
+            >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
@@ -76,15 +121,30 @@ const Register = () => {
           <Label htmlFor="confirmPassword">Confirm Password</Label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input id="confirmPassword" type={showConfirmPassword ? 'text' : 'password'} placeholder="••••••••" className="pl-10 pr-10" {...register('confirmPassword')} />
-            <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <Input 
+              id="confirmPassword" 
+              type={showConfirmPassword ? 'text' : 'password'} 
+              placeholder="••••••••" 
+              className="pl-10 pr-10" 
+              disabled={loading}
+              {...register('confirmPassword')} 
+            />
+            <button 
+              type="button" 
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              disabled={loading}
+            >
               {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
           {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
         </div>
+        {apiErrorMessage && !error?.graphQLErrors?.some(e => e.message.includes('email')) && (
+          <p className="text-sm text-destructive">{apiErrorMessage}</p>
+        )}
         <Button type="submit" variant="gradient" className="w-full" disabled={loading}>
-          {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Creating account...</> : 'Create account'}
+          {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Creating account...</> : 'Create account'}
         </Button>
       </form>
       <p className="text-center text-sm text-muted-foreground mt-6">

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getAuthToken, removeAuthToken, setAuthToken } from '@/lib/graphql/client';
+import { useGetMe } from '@/hooks/api/useAuth';
 
 interface User {
   id: string;
@@ -14,6 +15,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
+  refetchUser: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,26 +23,42 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const token = getAuthToken();
+  
+  // Fetch user data from backend if token exists
+  const { user: fetchedUser, loading: userLoading, refetch: refetchUserData } = useGetMe(
+    !token // Skip query if no token
+  );
 
   useEffect(() => {
-    // Check for existing token on mount
-    const token = getAuthToken();
     if (token) {
-      // For now, we'll set a placeholder - in production, fetch user data
-      // This would normally verify the token with the backend
-      setUser({ id: '1', email: 'user@example.com', name: 'User' });
+      // If we have a token but no user data yet, wait for the query
+      if (userLoading) {
+        setIsLoading(true);
+      } else if (fetchedUser) {
+        setUser(fetchedUser);
+        setIsLoading(false);
+      } else {
+        // Token exists but no user data - user might be logged out
+        setIsLoading(false);
+      }
+    } else {
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  }, []);
+  }, [token, fetchedUser, userLoading]);
 
-  const login = (token: string, userData: User) => {
-    setAuthToken(token);
+  const login = (newToken: string, userData: User) => {
+    setAuthToken(newToken);
     setUser(userData);
   };
 
   const logout = () => {
     removeAuthToken();
     setUser(null);
+  };
+
+  const refetchUser = async () => {
+    await refetchUserData();
   };
 
   return (
@@ -51,6 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         login,
         logout,
+        refetchUser,
       }}
     >
       {children}

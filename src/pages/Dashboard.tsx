@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGetMyEvents, getErrorMessage } from '@/hooks/api/useEvents';
 import {
   Calendar,
   CalendarPlus,
@@ -10,42 +11,47 @@ import {
   Clock,
   ArrowRight,
   TrendingUp,
+  AlertCircle,
 } from 'lucide-react';
-
-// Mock data for demo
-const mockStats = [
-  { label: 'Total Events', value: '12', icon: Calendar, color: 'primary' },
-  { label: 'Upcoming', value: '5', icon: Clock, color: 'success' },
-  { label: 'Participants', value: '48', icon: Users, color: 'accent' },
-  { label: 'This Month', value: '+3', icon: TrendingUp, color: 'warning' },
-];
-
-const mockUpcomingEvents = [
-  {
-    id: '1',
-    title: 'Team Standup',
-    date: 'Today, 10:00 AM',
-    participants: 4,
-    isCreator: true,
-  },
-  {
-    id: '2',
-    title: 'Product Launch Meeting',
-    date: 'Tomorrow, 2:00 PM',
-    participants: 12,
-    isCreator: true,
-  },
-  {
-    id: '3',
-    title: 'Design Review',
-    date: 'Friday, 11:00 AM',
-    participants: 6,
-    isCreator: false,
-  },
-];
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { events, loading, error } = useGetMyEvents();
+
+  // Calculate stats from real data
+  const totalEvents = events.length;
+  const upcomingEvents = events.filter(e => new Date(e.startDate) > new Date()).length;
+  const totalParticipants = new Set(events.flatMap(e => e.participants.map(p => p.id))).size;
+  
+  const stats = [
+    { label: 'Total Events', value: totalEvents.toString(), icon: Calendar, color: 'primary' },
+    { label: 'Upcoming', value: upcomingEvents.toString(), icon: Clock, color: 'success' },
+    { label: 'Participants', value: totalParticipants.toString(), icon: Users, color: 'accent' },
+    { label: 'This Month', value: events.filter(e => {
+      const eventDate = new Date(e.startDate);
+      const now = new Date();
+      return eventDate.getMonth() === now.getMonth() && eventDate.getFullYear() === now.getFullYear();
+    }).length.toString(), icon: TrendingUp, color: 'warning' },
+  ];
+
+  const upcomingEventsList = events
+    .filter(e => new Date(e.startDate) > new Date())
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+    .slice(0, 5);
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const errorMessage = getErrorMessage(error);
 
   return (
     <DashboardLayout>
@@ -64,6 +70,16 @@ const Dashboard = () => {
           </p>
         </motion.div>
 
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {errorMessage}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Stats Grid */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -71,7 +87,7 @@ const Dashboard = () => {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="grid grid-cols-2 lg:grid-cols-4 gap-4"
         >
-          {mockStats.map((stat, index) => (
+          {stats.map((stat, index) => (
             <StatCard key={index} {...stat} />
           ))}
         </motion.div>
@@ -95,10 +111,16 @@ const Dashboard = () => {
               </Button>
             </div>
 
-            {mockUpcomingEvents.length > 0 ? (
+            {loading ? (
               <div className="space-y-4">
-                {mockUpcomingEvents.map((event) => (
-                  <EventRow key={event.id} event={event} />
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-20 bg-muted animate-pulse rounded-xl" />
+                ))}
+              </div>
+            ) : upcomingEventsList.length > 0 ? (
+              <div className="space-y-4">
+                {upcomingEventsList.map((event) => (
+                  <EventRow key={event.id} event={event} formatDate={formatDate} />
                 ))}
               </div>
             ) : (
@@ -182,14 +204,10 @@ const StatCard = ({
 
 const EventRow = ({
   event,
+  formatDate,
 }: {
-  event: {
-    id: string;
-    title: string;
-    date: string;
-    participants: number;
-    isCreator: boolean;
-  };
+  event: any;
+  formatDate: (date: string) => string;
 }) => {
   return (
     <Link
@@ -197,24 +215,19 @@ const EventRow = ({
       className="flex items-center justify-between p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
     >
       <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
           <Calendar className="w-5 h-5 text-primary" />
         </div>
         <div>
           <h3 className="font-medium">{event.title}</h3>
-          <p className="text-sm text-muted-foreground">{event.date}</p>
+          <p className="text-sm text-muted-foreground">{formatDate(event.startDate)}</p>
         </div>
       </div>
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Users className="w-4 h-4" />
-          {event.participants}
+          {event.participants.length}
         </div>
-        {event.isCreator && (
-          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
-            Creator
-          </span>
-        )}
       </div>
     </Link>
   );
