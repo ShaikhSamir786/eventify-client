@@ -7,9 +7,10 @@ import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useRegister, getErrorMessage } from '@/hooks/api/useAuth';
+import { useRegister, useVerifyOTP, useResendOTP, getErrorMessage } from '@/hooks/api/useAuth';
 import { Loader2, Mail, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { OTPVerificationModal } from '@/components/auth/OTPVerificationModal';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -26,9 +27,13 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showOTPModal, setShowOTPModal] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
   const { register: registerUser, loading, error } = useRegister();
+  const { verifyOTP, loading: verifyLoading } = useVerifyOTP();
+  const { resendOTP } = useResendOTP();
 
   const { register, handleSubmit, formState: { errors }, setError } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -43,11 +48,12 @@ const Register = () => {
     });
 
     if (result.success) {
+      setRegisteredEmail(data.email);
+      setShowOTPModal(true);
       toast({ 
         title: 'Registration successful!', 
-        description: 'Please check your email for the verification code.' 
+        description: 'Please verify your email with the code we sent.' 
       });
-      navigate('/verify-otp', { state: { email: data.email } });
     } else {
       toast({
         title: 'Registration failed',
@@ -60,97 +66,130 @@ const Register = () => {
     }
   };
 
+  const handleVerifyOTP = async (otp: string) => {
+    const result = await verifyOTP({ email: registeredEmail, otp });
+    return { success: result.success, error: result.error };
+  };
+
+  const handleResendOTP = async () => {
+    const result = await resendOTP(registeredEmail);
+    return { success: result.success, error: result.error };
+  };
+
+  const handleVerificationSuccess = () => {
+    toast({
+      title: 'Email verified!',
+      description: 'You can now log in to your account.',
+    });
+    navigate('/login');
+  };
+
   const apiErrorMessage = error ? getErrorMessage(error) : null;
 
   return (
-    <AuthLayout title="Create your account" subtitle="Get started with Eventify for free">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        <div className="space-y-2">
-          <Label htmlFor="name">Full Name</Label>
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              id="name" 
-              placeholder="John Doe" 
-              className="pl-10" 
-              disabled={loading}
-              {...register('name')} 
-            />
+    <>
+      <AuthLayout title="Create your account" subtitle="Get started with Eventify for free">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="name">Full Name</Label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                id="name" 
+                placeholder="John Doe" 
+                className="pl-10" 
+                disabled={loading}
+                {...register('name')} 
+              />
+            </div>
+            {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>
-          {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              id="email" 
-              type="email" 
-              placeholder="john@example.com" 
-              className="pl-10" 
-              disabled={loading}
-              {...register('email')} 
-            />
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="john@example.com" 
+                className="pl-10" 
+                disabled={loading}
+                {...register('email')} 
+              />
+            </div>
+            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
           </div>
-          {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              id="password" 
-              type={showPassword ? 'text' : 'password'} 
-              placeholder="••••••••" 
-              className="pl-10 pr-10" 
-              disabled={loading}
-              {...register('password')} 
-            />
-            <button 
-              type="button" 
-              onClick={() => setShowPassword(!showPassword)} 
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              disabled={loading}
-            >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                id="password" 
+                type={showPassword ? 'text' : 'password'} 
+                placeholder="••••••••" 
+                className="pl-10 pr-10" 
+                disabled={loading}
+                {...register('password')} 
+              />
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)} 
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                disabled={loading}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
           </div>
-          {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm Password</Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              id="confirmPassword" 
-              type={showConfirmPassword ? 'text' : 'password'} 
-              placeholder="••••••••" 
-              className="pl-10 pr-10" 
-              disabled={loading}
-              {...register('confirmPassword')} 
-            />
-            <button 
-              type="button" 
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              disabled={loading}
-            >
-              {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                id="confirmPassword" 
+                type={showConfirmPassword ? 'text' : 'password'} 
+                placeholder="••••••••" 
+                className="pl-10 pr-10" 
+                disabled={loading}
+                {...register('confirmPassword')} 
+              />
+              <button 
+                type="button" 
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                disabled={loading}
+              >
+                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
           </div>
-          {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
-        </div>
-        {apiErrorMessage && (
-          <p className="text-sm text-destructive">{apiErrorMessage}</p>
-        )}
-        <Button type="submit" variant="gradient" className="w-full" disabled={loading}>
-          {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Creating account...</> : 'Create account'}
-        </Button>
-      </form>
-      <p className="text-center text-sm text-muted-foreground mt-6">
-        Already have an account? <Link to="/login" className="text-primary font-medium hover:underline">Sign in</Link>
-      </p>
-    </AuthLayout>
+          {apiErrorMessage && (
+            <p className="text-sm text-destructive">{apiErrorMessage}</p>
+          )}
+          <Button type="submit" variant="gradient" className="w-full" disabled={loading}>
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Creating account...</> : 'Create account'}
+          </Button>
+        </form>
+        <p className="text-center text-sm text-muted-foreground mt-6">
+          Already have an account? <Link to="/login" className="text-primary font-medium hover:underline">Sign in</Link>
+        </p>
+      </AuthLayout>
+
+      <OTPVerificationModal
+        open={showOTPModal}
+        onOpenChange={setShowOTPModal}
+        email={registeredEmail}
+        onVerify={handleVerifyOTP}
+        onResend={handleResendOTP}
+        loading={verifyLoading}
+        title="Verify your email"
+        successTitle="Email verified!"
+        successDescription="Your account has been created and verified successfully."
+        onSuccess={handleVerificationSuccess}
+      />
+    </>
   );
 };
 
