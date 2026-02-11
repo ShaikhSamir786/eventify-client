@@ -42,19 +42,19 @@ const AnimatedRoutes = () => {
         
         {/* Protected Routes */}
         <Route path="/dashboard" element={
-          <ProtectedRoute><Dashboard /></ProtectedRoute>
+          <ProtectedRoute><PageTransition><Dashboard /></PageTransition></ProtectedRoute>
         } />
         <Route path="/events" element={
-          <ProtectedRoute><Events /></ProtectedRoute>
+          <ProtectedRoute><PageTransition><Events /></PageTransition></ProtectedRoute>
         } />
         <Route path="/events/create" element={
-          <ProtectedRoute><CreateEvent /></ProtectedRoute>
+          <ProtectedRoute><PageTransition><CreateEvent /></PageTransition></ProtectedRoute>
         } />
         <Route path="/events/:id" element={
-          <ProtectedRoute><EventDetails /></ProtectedRoute>
+          <ProtectedRoute><PageTransition><EventDetails /></PageTransition></ProtectedRoute>
         } />
         <Route path="/events/:id/edit" element={
-          <ProtectedRoute><CreateEvent /></ProtectedRoute>
+          <ProtectedRoute><PageTransition><CreateEvent /></PageTransition></ProtectedRoute>
         } />
         
         <Route path="*" element={<NotFound />} />
