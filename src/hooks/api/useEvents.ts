@@ -237,7 +237,7 @@ export const useDeleteEvent = () => {
 };
 
 export const useInviteParticipants = () => {
-  const [inviteParticipants, { loading, error }] = useMutation<InviteParticipantsResponse, { eventId: string; emails: string[] }>(
+  const [inviteParticipants, { loading, error }] = useMutation<InviteParticipantsResponse, { input: { eventId: string; emails: string[] } }>(
     INVITE_PARTICIPANTS,
     {
       errorPolicy: 'all',
@@ -247,7 +247,7 @@ export const useInviteParticipants = () => {
 
   const handleInviteParticipants = async (eventId: string, emails: string[]) => {
     try {
-      const result = await inviteParticipants({ variables: { eventId, emails } });
+      const result = await inviteParticipants({ variables: { input: { eventId, emails } } });
       if (result.data?.inviteParticipants) {
         return { success: true, data: result.data.inviteParticipants };
       }

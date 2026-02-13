@@ -68,6 +68,15 @@ export const RESEND_OTP = gql`
   }
 `;
 
+export const CHANGE_PASSWORD = gql`
+  mutation ChangePassword($input: ChangePasswordInput!) {
+    changePassword(input: $input) {
+      message
+      success
+    }
+  }
+`;
+
 // User Queries
 export const GET_ME = gql`
   query GetMe {

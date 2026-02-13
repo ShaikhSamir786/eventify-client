@@ -3,9 +3,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useGetEvent, useDeleteEvent, getErrorMessage } from '@/hooks/api/useEvents';
+import { useGetEvent, useDeleteEvent, useInviteParticipants, getErrorMessage } from '@/hooks/api/useEvents';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -19,6 +20,10 @@ import {
   AlertCircle,
   Mail,
   User,
+  Plus,
+  X,
+  Loader2,
+  UserPlus,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -37,48 +42,61 @@ const EventDetails = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [emailsToInvite, setEmailsToInvite] = useState<string[]>([]);
 
-  const { event, loading, error } = useGetEvent(id);
+  const { event, loading, error, refetch } = useGetEvent(id);
   const { deleteEvent, loading: deleting } = useDeleteEvent();
+  const { inviteParticipants, loading: inviting } = useInviteParticipants();
 
   const isCreator = event?.createdBy?.id === user?.id;
 
   const handleDelete = async () => {
     if (!event) return;
-
     const result = await deleteEvent(event.id);
     if (result.success) {
-      toast({
-        title: 'Event deleted',
-        description: 'Your event has been deleted successfully.',
-      });
+      toast({ title: 'Event deleted', description: 'Your event has been deleted successfully.' });
       navigate('/events');
     } else {
-      toast({
-        title: 'Delete failed',
-        description: result.error || 'Could not delete the event',
-        variant: 'destructive',
-      });
+      toast({ title: 'Delete failed', description: result.error || 'Could not delete the event', variant: 'destructive' });
     }
     setShowDeleteDialog(false);
   };
 
+  const addEmail = () => {
+    const trimmed = emailInput.trim();
+    if (trimmed && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) && !emailsToInvite.includes(trimmed)) {
+      setEmailsToInvite(prev => [...prev, trimmed]);
+      setEmailInput('');
+    }
+  };
+
+  const removeEmail = (email: string) => {
+    setEmailsToInvite(prev => prev.filter(e => e !== email));
+  };
+
+  const handleInvite = async () => {
+    if (!event || emailsToInvite.length === 0) return;
+    const result = await inviteParticipants(event.id, emailsToInvite);
+    if (result.success) {
+      toast({ title: 'Participants invited', description: `${emailsToInvite.length} participant(s) invited successfully.` });
+      setEmailsToInvite([]);
+      setShowInviteForm(false);
+      refetch();
+    } else {
+      toast({ title: 'Invite failed', description: result.error || 'Could not invite participants', variant: 'destructive' });
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   };
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
 
   const errorMessage = getErrorMessage(error);
@@ -118,15 +136,11 @@ const EventDetails = () => {
   return (
     <DashboardLayout>
       <div className="max-w-3xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />Back to Events
           </Button>
-          
+
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div>
               <h1 className="text-3xl font-display font-bold mb-2">{event.title}</h1>
@@ -135,22 +149,16 @@ const EventDetails = () => {
                 <span>Created by {event.createdBy.firstName} {event.createdBy.lastName}</span>
               </div>
             </div>
-            
+
             {isCreator && (
               <div className="flex gap-2">
                 <Button variant="outline" asChild>
                   <Link to={`/events/${event.id}/edit`}>
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit
+                    <Edit className="w-4 h-4 mr-2" />Edit
                   </Link>
                 </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={() => setShowDeleteDialog(true)}
-                  disabled={deleting}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
+                <Button variant="destructive" onClick={() => setShowDeleteDialog(true)} disabled={deleting}>
+                  <Trash2 className="w-4 h-4 mr-2" />Delete
                 </Button>
               </div>
             )}
@@ -166,7 +174,6 @@ const EventDetails = () => {
             className="bg-card rounded-2xl border border-border p-6"
           >
             <h2 className="text-lg font-semibold mb-4">Event Details</h2>
-            
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -218,19 +225,87 @@ const EventDetails = () => {
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Invited Participants</h2>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Users className="w-4 h-4" />
-                <span>{event.invitedEmails?.length || 0}</span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Users className="w-4 h-4" />
+                  <span>{event.invitedEmails?.length || 0}</span>
+                </div>
+                {isCreator && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowInviteForm(!showInviteForm)}
+                  >
+                    <UserPlus className="w-4 h-4 mr-1" />
+                    Invite
+                  </Button>
+                )}
               </div>
             </div>
+
+            {/* Invite Form */}
+            {showInviteForm && isCreator && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-4 p-4 rounded-xl bg-muted/50 border border-border"
+              >
+                <p className="text-sm font-medium mb-3">Add participants by email</p>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Enter email address"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addEmail())}
+                      className="pl-10"
+                      disabled={inviting}
+                    />
+                  </div>
+                  <Button type="button" variant="outline" onClick={addEmail} disabled={inviting}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {emailsToInvite.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {emailsToInvite.map((email) => (
+                      <div key={email} className="flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm">
+                        <span>{email}</span>
+                        <button type="button" onClick={() => removeEmail(email)} disabled={inviting}>
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    onClick={handleInvite}
+                    disabled={inviting || emailsToInvite.length === 0}
+                  >
+                    {inviting ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />Inviting...</> : `Invite ${emailsToInvite.length} participant(s)`}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => { setShowInviteForm(false); setEmailsToInvite([]); setEmailInput(''); }}
+                    disabled={inviting}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </motion.div>
+            )}
 
             {event.invitedEmails && event.invitedEmails.length > 0 ? (
               <div className="space-y-3">
                 {event.invitedEmails.map((email, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-muted/50"
-                  >
+                  <div key={index} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                       <Mail className="w-5 h-5 text-primary" />
                     </div>
@@ -247,6 +322,12 @@ const EventDetails = () => {
                   <Users className="w-6 h-6 text-muted-foreground" />
                 </div>
                 <p className="text-muted-foreground">No participants invited yet</p>
+                {isCreator && !showInviteForm && (
+                  <Button variant="outline" size="sm" className="mt-3" onClick={() => setShowInviteForm(true)}>
+                    <UserPlus className="w-4 h-4 mr-1" />
+                    Invite participants
+                  </Button>
+                )}
               </div>
             )}
           </motion.div>
@@ -263,10 +344,7 @@ const EventDetails = () => {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDelete}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>
