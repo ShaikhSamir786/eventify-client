@@ -21,6 +21,7 @@ import Dashboard from "./pages/Dashboard";
 import Events from "./pages/Events";
 import EventDetails from "./pages/EventDetails";
 import CreateEvent from "./pages/CreateEvent";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,6 +56,9 @@ const AnimatedRoutes = () => {
         } />
         <Route path="/events/:id/edit" element={
           <ProtectedRoute><PageTransition><CreateEvent /></PageTransition></ProtectedRoute>
+        } />
+        <Route path="/settings" element={
+          <ProtectedRoute><PageTransition><Settings /></PageTransition></ProtectedRoute>
         } />
         
         <Route path="*" element={<NotFound />} />

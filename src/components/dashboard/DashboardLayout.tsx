@@ -31,6 +31,7 @@ const navItems = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { label: 'My Events', path: '/events', icon: Calendar },
   { label: 'Create Event', path: '/events/create', icon: CalendarPlus },
+  { label: 'Settings', path: '/settings', icon: Settings },
 ];
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
