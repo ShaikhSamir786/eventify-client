@@ -2,8 +2,10 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGetMyEvents, getErrorMessage } from '@/hooks/api/useEvents';
+import { useCountUp } from '@/hooks/useCountUp';
 import {
   Calendar,
   CalendarPlus,
@@ -19,20 +21,20 @@ const Dashboard = () => {
   const { user } = useAuth();
   const { events, loading, error } = useGetMyEvents();
 
-  // Calculate stats from real data
   const totalEvents = events.length;
   const upcomingEvents = events.filter(e => new Date(e.date) > new Date()).length;
   const totalParticipants = events.reduce((acc, e) => acc + (e.invitedEmails?.length || 0), 0);
-  
+  const thisMonth = events.filter(e => {
+    const eventDate = new Date(e.date);
+    const now = new Date();
+    return eventDate.getMonth() === now.getMonth() && eventDate.getFullYear() === now.getFullYear();
+  }).length;
+
   const stats = [
-    { label: 'Total Events', value: totalEvents.toString(), icon: Calendar, color: 'primary' },
-    { label: 'Upcoming', value: upcomingEvents.toString(), icon: Clock, color: 'success' },
-    { label: 'Invited', value: totalParticipants.toString(), icon: Users, color: 'accent' },
-    { label: 'This Month', value: events.filter(e => {
-      const eventDate = new Date(e.date);
-      const now = new Date();
-      return eventDate.getMonth() === now.getMonth() && eventDate.getFullYear() === now.getFullYear();
-    }).length.toString(), icon: TrendingUp, color: 'warning' },
+    { label: 'Total Events', value: totalEvents, icon: Calendar, color: 'primary' },
+    { label: 'Upcoming', value: upcomingEvents, icon: Clock, color: 'success' },
+    { label: 'Invited', value: totalParticipants, icon: Users, color: 'accent' },
+    { label: 'This Month', value: thisMonth, icon: TrendingUp, color: 'warning' },
   ];
 
   const upcomingEventsList = events
@@ -43,11 +45,7 @@ const Dashboard = () => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+      weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
     });
   };
 
@@ -56,65 +54,57 @@ const Dashboard = () => {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        {/* Welcome Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <h1 className="text-3xl font-display font-bold mb-2">
             Welcome back, {user?.firstName || 'there'}! 👋
           </h1>
-          <p className="text-muted-foreground">
-            Here's what's happening with your events today.
-          </p>
+          <p className="text-muted-foreground">Here's what's happening with your events today.</p>
         </motion.div>
 
-        {/* Error Alert */}
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              {errorMessage}
-            </AlertDescription>
+            <AlertDescription>{errorMessage}</AlertDescription>
           </Alert>
         )}
 
         {/* Stats Grid */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="grid grid-cols-2 lg:grid-cols-4 gap-4"
-        >
-          {stats.map((stat, index) => (
-            <StatCard key={index} {...stat} />
-          ))}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {loading
+            ? [1, 2, 3, 4].map(i => (
+              <div key={i} className="bg-card rounded-xl border border-border p-4 space-y-3">
+                <Skeleton className="w-10 h-10 rounded-lg" />
+                <Skeleton className="h-7 w-12" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            ))
+            : stats.map((stat, index) => (
+              <StatCard key={index} {...stat} />
+            ))
+          }
         </motion.div>
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Upcoming Events */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="lg:col-span-2 bg-card rounded-2xl border border-border p-6"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }} className="lg:col-span-2 bg-card rounded-2xl border border-border p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold">Upcoming Events</h2>
               <Button variant="ghost" size="sm" asChild>
-                <Link to="/events">
-                  View all
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </Link>
+                <Link to="/events">View all<ArrowRight className="w-4 h-4 ml-1" /></Link>
               </Button>
             </div>
 
             {loading ? (
               <div className="space-y-4">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className="h-20 bg-muted animate-pulse rounded-xl" />
+                  <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-muted/50">
+                    <Skeleton className="w-10 h-10 rounded-lg flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-3 w-28" />
+                    </div>
+                    <Skeleton className="h-4 w-8" />
+                  </div>
                 ))}
               </div>
             ) : upcomingEventsList.length > 0 ? (
@@ -129,40 +119,22 @@ const Dashboard = () => {
           </motion.div>
 
           {/* Quick Actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="bg-card rounded-2xl border border-border p-6"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }} className="bg-card rounded-2xl border border-border p-6">
             <h2 className="text-lg font-semibold mb-6">Quick Actions</h2>
             <div className="space-y-3">
               <Button variant="gradient" className="w-full justify-start" asChild>
-                <Link to="/events/create">
-                  <CalendarPlus className="w-4 h-4 mr-2" />
-                  Create New Event
-                </Link>
+                <Link to="/events/create"><CalendarPlus className="w-4 h-4 mr-2" />Create New Event</Link>
               </Button>
               <Button variant="outline" className="w-full justify-start" asChild>
-                <Link to="/events">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Browse Events
-                </Link>
+                <Link to="/events"><Calendar className="w-4 h-4 mr-2" />Browse Events</Link>
               </Button>
               <Button variant="outline" className="w-full justify-start" asChild>
-                <Link to="/events?filter=invited">
-                  <Users className="w-4 h-4 mr-2" />
-                  View Invitations
-                </Link>
+                <Link to="/events?filter=invited"><Users className="w-4 h-4 mr-2" />View Invitations</Link>
               </Button>
             </div>
-
-            {/* Pro Tip */}
             <div className="mt-6 p-4 rounded-xl bg-primary/5 border border-primary/10">
               <p className="text-sm font-medium text-primary mb-1">Pro Tip 💡</p>
-              <p className="text-sm text-muted-foreground">
-                Invite participants via email and they'll receive instant notifications.
-              </p>
+              <p className="text-sm text-muted-foreground">Invite participants via email and they'll receive instant notifications.</p>
             </div>
           </motion.div>
         </div>
@@ -171,17 +143,8 @@ const Dashboard = () => {
   );
 };
 
-const StatCard = ({
-  label,
-  value,
-  icon: Icon,
-  color,
-}: {
-  label: string;
-  value: string;
-  icon: typeof Calendar;
-  color: string;
-}) => {
+const StatCard = ({ label, value, icon: Icon, color }: { label: string; value: number; icon: typeof Calendar; color: string }) => {
+  const animatedValue = useCountUp(value);
   const colorClasses: Record<string, string> = {
     primary: 'bg-primary/10 text-primary',
     accent: 'bg-accent/10 text-accent',
@@ -196,23 +159,28 @@ const StatCard = ({
           <Icon className="w-5 h-5" />
         </div>
       </div>
-      <p className="text-2xl font-bold">{value}</p>
+      <p className="text-2xl font-bold">{animatedValue}</p>
       <p className="text-sm text-muted-foreground">{label}</p>
     </div>
   );
 };
 
-const EventRow = ({
-  event,
-  formatDate,
-}: {
-  event: { id: string; title: string; date: string; invitedEmails?: string[] };
-  formatDate: (date: string) => string;
-}) => {
+const getEventBorderColor = (dateString: string) => {
+  const eventDate = new Date(dateString);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+
+  if (eventDay.getTime() === today.getTime()) return 'border-l-4 border-l-success';
+  if (eventDate > now) return 'border-l-4 border-l-primary';
+  return 'border-l-4 border-l-muted-foreground/30';
+};
+
+const EventRow = ({ event, formatDate }: { event: { id: string; title: string; date: string; invitedEmails?: string[] }; formatDate: (date: string) => string }) => {
   return (
     <Link
       to={`/events/${event.id}`}
-      className="flex items-center justify-between p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
+      className={`flex items-center justify-between p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors ${getEventBorderColor(event.date)}`}
     >
       <div className="flex items-center gap-4">
         <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -239,14 +207,9 @@ const EmptyState = () => (
       <Calendar className="w-8 h-8 text-muted-foreground" />
     </div>
     <h3 className="font-medium mb-2">No upcoming events</h3>
-    <p className="text-sm text-muted-foreground mb-4">
-      Create your first event to get started
-    </p>
+    <p className="text-sm text-muted-foreground mb-4">Create your first event to get started</p>
     <Button variant="gradient" size="sm" asChild>
-      <Link to="/events/create">
-        <CalendarPlus className="w-4 h-4 mr-2" />
-        Create Event
-      </Link>
+      <Link to="/events/create"><CalendarPlus className="w-4 h-4 mr-2" />Create Event</Link>
     </Button>
   </div>
 );
